@@ -4,42 +4,158 @@
 <head>
   <title> Blake Web </title>
   <link rel="stylesheet" href="style.css" />
-</head> 
+</head>
 
-<body>
-  <!-- All content goes here -->
+<body class="home-page">
+
   <div id="all-contents">
     <!-- nav goes here (TODO 6) -->
-<div id="all-contents">
-  <!-- nav goes here (TODO 6) -->
-  <nav>
-    <h1>Blake's Web</h1>
-    <ul id="nav-ul">
-      <li class="nav-li"><a href="index.html">Home</a></li>
-      <li class="nav-li"><a href="portfolio.html">Portfolio</a></li>
-    </ul>
-  </nav>
+    <nav>
+      <h1>Blake's Web</h1>
+      <ul id="nav-ul">
+        <li class="nav-li"><a href="index.html">Home</a></li>
+        <li class="nav-li"><a href="portfolio.html">Portfolio</a></li>
+      </ul>
+    </nav>
 
-  <main>
-    <div class="sidebar">
-        <img class="sidebar-img" src="https://www.escoffier.edu/wp-content/uploads/2022/03/Chef-Flambeing-Potatoes-in-Professional-Kitchen-768.jpeg" alt="My image" />
-    </div>
+    <main>
+      <div class="sidebar">
+        <img class="sidebar-img"
+          src="https://www.escoffier.edu/wp-content/uploads/2022/03/Chef-Flambeing-Potatoes-in-Professional-Kitchen-768.jpeg"
+          alt="My image" />
+      </div>
 
-    <div class="content">
-      <h2> Blake </h2>
-      <p> Future Software engineer</p>
-       
-      <div id="interests">
-    <h3>Interests</h3>
-    <ul>
-      <li>Cooking</li>
-      <li>Soccer</li>
-      <li>Hanging Out</li>
-    </ul>
+      <div class="content">
+        <h2> Blake </h2>
+        <p> Future Software engineer</p>
+
+        <div id="interests">
+          <h3>Interests</h3>
+          <ul>
+            <li>Cooking</li>
+            <li>Soccer</li>
+            <li>Hanging Out</li>
+          </ul>
+        </div>
+      </div>
+    </main>
   </div>
+
+  <div class="music-player" aria-label="Music player">
+    <div class="music-player-heading">
+      <span class="spotify-label">SPOTIFY <span aria-hidden="true">&#8226;</span> NOW PLAYING</span>
+      <strong class="music-title">Anamalie</strong>
+      <span class="music-artist">Kevin MacLeod</span>
     </div>
-  </main>
-</div>
+    <audio class="site-music" loop preload="auto">
+      <source src="https://upload.wikimedia.org/wikipedia/commons/a/aa/Anamalie_%28ISRC_USUAN1500007%29.mp3"
+        type="audio/mpeg" />
+    </audio>
+    <div class="music-player-main">
+      <button class="music-skip music-previous" type="button" aria-label="Previous song">
+        <span aria-hidden="true">&#9198;</span>
+      </button>
+      <button class="music-toggle" type="button" aria-label="Play Anamalie">
+        <span aria-hidden="true">&#9654;</span>
+      </button>
+      <div class="music-details">
+        <strong class="music-title">Anamalie</strong>
+        <span class="music-artist">Kevin MacLeod</span>
+      </div>
+      <button class="music-skip music-next" type="button" aria-label="Next song">
+        <span aria-hidden="true">&#9197;</span>
+      </button>
+      <span class="music-note" aria-hidden="true">&#9835;</span>
+    </div>
+    <div class="music-progress-row">
+      <span class="music-time music-current">0:00</span>
+      <input class="music-progress" type="range" min="0" max="100" value="0" aria-label="Music progress" />
+      <span class="music-time music-duration">0:00</span>
+    </div>
+    <div class="music-volume-row">
+      <span aria-hidden="true">&#128266;</span>
+      <input class="music-volume" type="range" min="0" max="1" step="0.01" value="1" aria-label="Music volume" />
+    </div>
+  </div>
+  <script>
+    const music = document.querySelector(".site-music");
+    const player = document.querySelector(".music-player");
+    const toggle = player.querySelector(".music-toggle");
+    const previous = player.querySelector(".music-previous");
+    const next = player.querySelector(".music-next");
+    const titles = player.querySelectorAll(".music-title");
+    const artists = player.querySelectorAll(".music-artist");
+    const progress = player.querySelector(".music-progress");
+    const currentTime = player.querySelector(".music-current");
+    const duration = player.querySelector(".music-duration");
+    const volume = player.querySelector(".music-volume");
+
+    const formatTime = (seconds) => {
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = Math.floor(seconds % 60).toString().padStart(2, "0");
+      return `${minutes}:${remainingSeconds}`;
+    };
+
+    const playlist = [
+      { title: "Anamalie", artist: "Kevin MacLeod", src: "https://upload.wikimedia.org/wikipedia/commons/a/aa/Anamalie_%28ISRC_USUAN1500007%29.mp3" },
+      { title: "It's a Jazz Thing", artist: "Free Music Archive", src: "https://upload.wikimedia.org/wikipedia/commons/c/ce/It%27s_a_jazz_thing.ogg" },
+      { title: "Indian Folk Classical Flute Music", artist: "Traditional", src: "https://upload.wikimedia.org/wikipedia/commons/1/1d/Indian_Folk_Classical_Flute_Music_%281%29.wav" },
+      { title: "Happy Frog", artist: "Public Domain", src: "https://upload.wikimedia.org/wikipedia/commons/7/76/Happy-Frog.wav" },
+      { title: "A Land of Corn and Wine", artist: "Daniel William Lawrence", src: "https://upload.wikimedia.org/wikipedia/commons/0/0e/A_Land_of_Corn_and_Wine_-_Daniel_William_Lawrence_-_Archival%2C_Instrumental_Blues_and_Folk_Music_Recording.wav" }
+    ];
+    let currentTrack = 0;
+
+    const updatePlayer = () => {
+      const isPlaying = !music.paused;
+      toggle.innerHTML = `<span aria-hidden="true">${isPlaying ? "&#10074;&#10074;" : "&#9654;"}</span>`;
+      toggle.setAttribute("aria-label", `${isPlaying ? "Pause" : "Play"} ${playlist[currentTrack].title}`);
+    };
+
+    const loadTrack = (index, autoplay = false) => {
+      currentTrack = (index + playlist.length) % playlist.length;
+      const track = playlist[currentTrack];
+      music.src = track.src;
+      titles.forEach((title) => { title.textContent = track.title; });
+      artists.forEach((artist) => { artist.textContent = track.artist; });
+      currentTime.textContent = "0:00";
+      duration.textContent = "0:00";
+      progress.value = 0;
+      updatePlayer();
+      if (autoplay) music.play().catch(() => { });
+    };
+
+    toggle.addEventListener("click", () => {
+      if (music.paused) {
+        music.play().catch(() => { });
+      } else {
+        music.pause();
+      }
+    });
+    previous.addEventListener("click", () => loadTrack(currentTrack - 1, true));
+    next.addEventListener("click", () => loadTrack(currentTrack + 1, true));
+    music.addEventListener("loadedmetadata", () => {
+      duration.textContent = formatTime(music.duration);
+    });
+    music.addEventListener("timeupdate", () => {
+      progress.value = music.duration ? (music.currentTime / music.duration) * 100 : 0;
+      currentTime.textContent = formatTime(music.currentTime);
+    });
+    music.addEventListener("play", updatePlayer);
+    music.addEventListener("pause", updatePlayer);
+    music.addEventListener("ended", () => loadTrack(currentTrack + 1, true));
+    progress.addEventListener("input", () => {
+      music.currentTime = (progress.value / 100) * music.duration;
+    });
+    volume.addEventListener("input", () => {
+      music.volume = volume.value;
+    });
+    document.addEventListener("pointerdown", (event) => {
+      if (!player.contains(event.target)) {
+        music.play().catch(() => { });
+      }
+    }, { once: true });
+    loadTrack(0);
+  </script>
 
 </body>
 

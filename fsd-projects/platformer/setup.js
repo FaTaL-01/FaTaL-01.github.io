@@ -73,6 +73,13 @@ let offsetY = 0;
 
 // Platform, cannon, projectile, and collectable variables
 let platforms = [];
+let trampolines = [];
+let oneWayPlatforms = [];
+let powerUps = [];
+let cameraOffset = 0;
+let previousPlayerY = 0;
+let highestPlayerY = 100;
+let score = 0;
 let fakePlatforms = [];
 let badPlatforms = [];
 let cannons = [];

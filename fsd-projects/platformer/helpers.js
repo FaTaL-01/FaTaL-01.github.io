@@ -8,7 +8,7 @@ function registerSetup(setup) {
 }
 
 function main() {
-  ctx.clearRect(0, 0, 1400, 750); //erase the screen so you can draw everything in it's most current position
+  ctx.clearRect(0, 0, canvas.width, canvas.height); //erase the screen so you can draw everything in it's most current position
 
   if (shouldDrawGrid) {
     makeGrid();
@@ -24,7 +24,14 @@ function main() {
     return;
   }
 
+  if (typeof generateVerticalPlatforms === "function") {
+    generateVerticalPlatforms();
+  }
+
   drawPlatforms();
+  drawOneWayPlatforms();
+  drawTrampolines();
+  drawPowerUps();
   drawFakePlatforms();
   drawBadPlatforms();
   drawProjectiles();
@@ -32,18 +39,36 @@ function main() {
   drawCollectables();
   playerFrictionAndGravity();
 
+  previousPlayerY = player.y;
   player.x += player.speedX;
   player.y += player.speedY;
 
   collision(); //checks if the player will collide with something in this frame
+  oneWayPlatformCollision();
+  trampolineCollision();
   keyboardControlActions(); //keyboard controls.
   projectileCollision(); //checks if the player is getting hit by a projectile in the next frame
   badPlatformCollision(); //checks if the player is touching a bad platform
   collectablesCollide(); //checks if player has touched a collectable
+  powerUpCollision();
+
+  if (player.y - cameraOffset > canvas.height + 80) {
+    player.deadAndDeathAnimationDone = true;
+  }
 
   animate(); //this changes halle's picture to the next frame so it looks animated.
   // debug()                   //debugging values. Comment this out when not debugging.
   drawRobot(); //this actually displays the image of the robot.
+
+  if (player.y < cameraOffset + 260) {
+    cameraOffset = player.y - 260;
+  }
+
+  if (player.y < highestPlayerY) {
+    highestPlayerY = player.y;
+    score = Math.max(score, Math.floor((100 - highestPlayerY) / 10));
+    document.getElementById("score").textContent = `Score: ${score}`;
+  }
 }
 
 function getJSON(url, callback) {
@@ -231,9 +256,9 @@ function drawRobot() {
       spriteWidth,
       spriteHeight,
       player.x - hitDx,
-      player.y - hitDy,
+      player.y - cameraOffset - hitDy,
       player.width,
-      player.height
+      player.height,
     );
   } else {
     //for running to the left you mirror the image
@@ -246,9 +271,9 @@ function drawRobot() {
       spriteWidth,
       spriteHeight,
       -player.x - player.width + hitDx,
-      player.y - hitDy,
+      player.y - cameraOffset - hitDy,
       player.width,
-      player.height
+      player.height,
     );
     ctx.restore(); //put the canvas back to normal
   }
@@ -270,7 +295,7 @@ function collision() {
         platforms[i].x,
         platforms[i].y,
         platforms[i].width,
-        platforms[i].height
+        platforms[i].height,
       );
     }
   }
@@ -393,22 +418,22 @@ function deathOfPlayer() {
     canvas.width / 4,
     canvas.height / 6,
     canvas.width / 2,
-    canvas.height / 2
+    canvas.height / 2,
   );
   ctx.fillStyle = "black";
   ctx.font = "800% serif";
   ctx.fillText(
-    "You are dead",
+    "GAME OVER",
     canvas.width / 4,
     canvas.height / 6 + canvas.height / 5,
-    (canvas.width / 16) * 14
+    (canvas.width / 16) * 14,
   );
   ctx.font = "500% serif";
   ctx.fillText(
-    "Hit any key to restart",
+    "You fell off the screen",
     canvas.width / 4,
     canvas.height / 6 + canvas.height / 3,
-    (canvas.width / 16) * 14
+    (canvas.width / 16) * 14,
   );
   if (keyPress.any) {
     keyPress.any = false;
@@ -473,7 +498,126 @@ function drawPlatforms() {
     // Draw the platform
     const { color, x, y, width, height } = platforms[i];
     ctx.fillStyle = color;
-    ctx.fillRect(x, y, width, height);
+    ctx.fillRect(x, y - cameraOffset, width, height);
+  }
+}
+
+function drawOneWayPlatforms() {
+  for (var i = 0; i < oneWayPlatforms.length; i++) {
+    const { x, y, width, height } = oneWayPlatforms[i];
+    ctx.fillStyle = "#43d9b8";
+    ctx.fillRect(x, y - cameraOffset, width, height);
+    ctx.fillStyle = "#b8fff0";
+    ctx.fillRect(x, y - cameraOffset, width, 4);
+  }
+}
+
+function drawTrampolines() {
+  for (var i = 0; i < trampolines.length; i++) {
+    const { x, y, width, height } = trampolines[i];
+    ctx.fillStyle = "#f04f78";
+    ctx.fillRect(x, y - cameraOffset, width, height);
+    ctx.fillStyle = "#ffd166";
+    ctx.fillRect(x + 8, y - cameraOffset + 5, width - 16, 5);
+    ctx.fillStyle = "white";
+    ctx.font = "16px sans-serif";
+    ctx.fillText("^", x + width / 2 - 4, y - cameraOffset - 6);
+  }
+}
+
+function trampolineCollision() {
+  for (var i = 0; i < trampolines.length; i++) {
+    const trampoline = trampolines[i];
+    const isOverlapping =
+      player.x + hitBoxWidth > trampoline.x &&
+      player.x < trampoline.x + trampoline.width &&
+      player.y + hitBoxHeight >= trampoline.y &&
+      player.y + hitBoxHeight <= trampoline.y + trampoline.height + 12;
+
+    if (isOverlapping && player.speedY >= 0) {
+      player.y = trampoline.y - hitBoxHeight;
+      player.speedY = -trampoline.launchStrength;
+      player.onGround = false;
+      jumpTimer = 19;
+    }
+  }
+}
+
+function oneWayPlatformCollision() {
+  if (player.speedY < 0) {
+    return;
+  }
+
+  for (var i = 0; i < oneWayPlatforms.length; i++) {
+    const platform = oneWayPlatforms[i];
+    const crossedTop = previousPlayerY + hitBoxHeight <= platform.y;
+    const isOverlapping =
+      player.x + hitBoxWidth > platform.x &&
+      player.x < platform.x + platform.width &&
+      player.y + hitBoxHeight >= platform.y &&
+      player.y + hitBoxHeight <= platform.y + platform.height + 12;
+
+    if (crossedTop && isOverlapping) {
+      player.y = platform.y - hitBoxHeight;
+      player.speedY = 0;
+      player.onGround = true;
+    }
+  }
+}
+
+function drawPowerUps() {
+  for (var i = 0; i < powerUps.length; i++) {
+    const powerUp = powerUps[i];
+    ctx.fillStyle = powerUp.type === "teleport" ? "#ffca3a" : "#ff595e";
+    ctx.beginPath();
+    ctx.arc(powerUp.x + 18, powerUp.y - cameraOffset + 18, 18, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#202737";
+    ctx.font = "bold 15px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(
+      powerUp.type === "teleport" ? "T" : "J",
+      powerUp.x + 18,
+      powerUp.y - cameraOffset + 23,
+    );
+    ctx.textAlign = "left";
+  }
+}
+
+function powerUpCollision() {
+  for (var i = powerUps.length - 1; i >= 0; i--) {
+    const powerUp = powerUps[i];
+    const isOverlapping =
+      player.x + hitBoxWidth > powerUp.x &&
+      player.x < powerUp.x + 36 &&
+      player.y + hitBoxHeight > powerUp.y &&
+      player.y < powerUp.y + 36;
+
+    if (!isOverlapping) {
+      continue;
+    }
+
+    if (powerUp.type === "super-jump") {
+      player.speedY = -26;
+      player.onGround = false;
+      jumpTimer = 19;
+    } else {
+      let destination = null;
+      for (var j = 0; j < platforms.length; j++) {
+        if (
+          platforms[j].y < player.y - 100 &&
+          (!destination || platforms[j].y > destination.y)
+        ) {
+          destination = platforms[j];
+        }
+      }
+      if (destination) {
+        player.x = destination.x + destination.width / 2 - hitBoxWidth / 2;
+        player.y = destination.y - hitBoxHeight;
+        player.speedY = 0;
+      }
+    }
+    powerUps.splice(i, 1);
   }
 }
 
@@ -509,7 +653,7 @@ function makeGrid() {
     ctx.fillText(
       i, // text
       i - 15, // x location
-      25 // y location
+      25, // y location
     );
   }
 
@@ -523,7 +667,7 @@ function makeGrid() {
     ctx.fillText(
       i, // text
       10, // x location
-      i + 5 // y location
+      i + 5, // y location
     );
   }
   gridMade = true;
@@ -536,7 +680,7 @@ function drawProjectiles() {
       projectiles[i].x,
       projectiles[i].y,
       projectiles[i].width,
-      projectiles[i].height
+      projectiles[i].height,
     );
     projectiles[i].x = projectiles[i].x + projectiles[i].speedX;
     projectiles[i].y = projectiles[i].y + projectiles[i].speedY;
@@ -552,7 +696,7 @@ function drawCannons() {
         cannons[i].x,
         cannons[i].y,
         cannons[i].projectileWidth,
-        cannons[i].projectileHeight
+        cannons[i].projectileHeight,
       );
     } else {
       cannons[i].projectileCountdown = cannons[i].projectileCountdown + 1;
@@ -593,7 +737,7 @@ function drawCollectables() {
         collectables[i].x,
         collectables[i].y,
         collectableWidth,
-        collectableHeight
+        collectableHeight,
       );
     } else {
       //draw the icons at the top if collected
@@ -606,7 +750,7 @@ function drawCollectables() {
         200 + 100 * i,
         10,
         collectableWidth,
-        collectableHeight
+        collectableHeight,
       );
       ctx.globalAlpha = 1;
     }
@@ -679,7 +823,7 @@ function winGame() {
     canvas.width / 4,
     canvas.height / 6,
     canvas.width / 2,
-    canvas.height / 2
+    canvas.height / 2,
   );
   ctx.fillStyle = "white";
   ctx.font = "800% serif";
@@ -687,14 +831,14 @@ function winGame() {
     "You Win!",
     canvas.width / 4,
     canvas.height / 6 + canvas.height / 5,
-    (canvas.width / 16) * 14
+    (canvas.width / 16) * 14,
   );
   ctx.font = "500% serif";
   ctx.fillText(
     "Hit any key to restart",
     canvas.width / 4,
     canvas.height / 6 + canvas.height / 3,
-    (canvas.width / 16) * 14
+    (canvas.width / 16) * 14,
   );
   if (keyPress.any) {
     keyPress.any = false;
@@ -713,7 +857,7 @@ function createPlatform(
   speedX = 1,
   minY = null,
   maxY = null,
-  speedY = 1
+  speedY = 1,
 ) {
   platforms.push({
     x,
@@ -730,6 +874,18 @@ function createPlatform(
     directionX: 1, // 1 for right, -1 for left
     directionY: 1, // 1 for down, -1 for up
   });
+}
+
+function createOneWayPlatform(x, y, width, height, color = "#43d9b8") {
+  oneWayPlatforms.push({ x, y, width, height, color });
+}
+
+function createPowerUp(x, y, type) {
+  powerUps.push({ x, y, type });
+}
+
+function createTrampoline(x, y, width, height, launchStrength = 20) {
+  trampolines.push({ x, y, width, height, launchStrength });
 }
 
 function createFakePlatform(x, y, width, height, color = "grey") {
@@ -760,7 +916,7 @@ function createCannon(
   height = defaultProjectileHeight,
   minPos = null,
   maxPos = null,
-  speed = 1
+  speed = 1,
 ) {
   if (wallLocation === "top") {
     cannons.push({
@@ -841,7 +997,7 @@ function createCollectable(
   bounce = 1,
   minX = null,
   maxX = null,
-  speed = 1
+  speed = 1,
 ) {
   if (type !== "") {
     var image = document.createElement("img");
