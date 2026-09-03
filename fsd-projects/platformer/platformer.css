@@ -1,6 +1,6 @@
 body {
   margin: 0px;
-  background-color: #202737;
+  background: radial-gradient(circle at top, #34435c, #111722 72%);
   min-height: 100vh;
   display: flex;
   justify-content: center;
@@ -8,10 +8,22 @@ body {
 }
 
 canvas {
-  background-color: lightblue;
+  background-color: #1a2940;
+  background-image:
+    radial-gradient(circle at 78% 18%, rgba(255, 231, 164, 0.95) 0 28px, rgba(255, 231, 164, 0.18) 29px 58px, transparent 59px),
+    radial-gradient(circle at 14% 22%, rgba(255, 255, 255, 0.8) 0 1px, transparent 2px),
+    radial-gradient(circle at 31% 12%, rgba(255, 255, 255, 0.65) 0 1px, transparent 2px),
+    radial-gradient(circle at 61% 27%, rgba(255, 255, 255, 0.7) 0 1px, transparent 2px),
+    linear-gradient(to bottom, #17233b 0%, #405b78 58%, #c47a68 100%),
+    linear-gradient(to top, #162235 0 22%, transparent 22%),
+    repeating-linear-gradient(to right, #263b54 0 48px, transparent 48px 92px);
+  background-size: auto, 180px 130px, 240px 170px, 310px 210px, auto, auto, 184px 48%;
+  background-position: center, 8% 12%, 31% 10%, 60% 18%, center, bottom, bottom;
+  background-repeat: no-repeat, repeat, repeat, repeat, no-repeat, no-repeat, repeat-x;
   margin: 20px;
   border-radius: 15px;
-  border: 5px solid rgba(118, 0, 233, 0.375);
+  border: 5px solid rgba(215, 225, 238, 0.35);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
 }
 
 img {
