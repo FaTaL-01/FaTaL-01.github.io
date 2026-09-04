@@ -92,6 +92,9 @@ let ctx;
 // setup function variable
 let setup;
 
+// Timer variable
+let runStartedAt;
+
 let halleImage;
 let animationDetails = {};
 
