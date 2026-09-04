@@ -389,28 +389,75 @@ function badPlatformCollision() {
 }
 
 function deathOfPlayer() {
-  ctx.fillStyle = "grey";
+  // Draw sunrise gradient background
+  const gradient = ctx.createLinearGradient(
+    canvas.width / 4,
+    canvas.height / 6,
+    canvas.width / 4,
+    canvas.height / 6 + canvas.height / 2,
+  );
+  gradient.addColorStop(0, "#FF6B35"); // Sunrise orange
+  gradient.addColorStop(0.5, "#FF8C42"); // Light orange
+  gradient.addColorStop(1, "#FFB380"); // Pale peach
+
+  ctx.fillStyle = gradient;
   ctx.fillRect(
     canvas.width / 4,
     canvas.height / 6,
     canvas.width / 2,
     canvas.height / 2,
   );
-  ctx.fillStyle = "black";
-  ctx.font = "800% serif";
+
+  // Add border
+  ctx.strokeStyle = "#FF4500";
+  ctx.lineWidth = 5;
+  ctx.strokeRect(
+    canvas.width / 4,
+    canvas.height / 6,
+    canvas.width / 2,
+    canvas.height / 2,
+  );
+
+  // Draw "You are dead" text with shadow
+  ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+  ctx.font = "bold 140px serif";
+  ctx.fillText(
+    "You are dead",
+    canvas.width / 4 + 20,
+    canvas.height / 6 + canvas.height / 5 + 8,
+    (canvas.width / 16) * 14,
+  );
+
+  // Draw "You are dead" text in white
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 140px serif";
   ctx.fillText(
     "You are dead",
     canvas.width / 4,
     canvas.height / 6 + canvas.height / 5,
     (canvas.width / 16) * 14,
   );
-  ctx.font = "500% serif";
+
+  // Draw restart text with shadow
+  ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+  ctx.font = "bold 90px serif";
+  ctx.fillText(
+    "Hit any key to restart",
+    canvas.width / 4 + 15,
+    canvas.height / 6 + canvas.height / 3 + 8,
+    (canvas.width / 16) * 14,
+  );
+
+  // Draw restart text in yellow
+  ctx.fillStyle = "#FFD700";
+  ctx.font = "bold 90px serif";
   ctx.fillText(
     "Hit any key to restart",
     canvas.width / 4,
     canvas.height / 6 + canvas.height / 3,
     (canvas.width / 16) * 14,
   );
+
   if (keyPress.any) {
     keyPress.any = false;
     window.location.reload();
@@ -674,50 +721,111 @@ function checkForWin() {
 }
 
 function drawHUD() {
-  // Draw timer
+  // Draw semi-transparent background panels
+  ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+  ctx.fillRect(10, 20, 300, 80);
+
+  // Draw timer with shadow effect
   const elapsedTime = (performance.now() - runStartedAt) / 1000; // Convert to seconds
   const minutes = Math.floor(elapsedTime / 60);
   const seconds = Math.floor(elapsedTime % 60);
   const timeString = `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
 
-  ctx.fillStyle = "black";
-  ctx.font = "30px Arial";
-  ctx.fillText(`Time: ${timeString}`, 20, 40);
+  // Timer shadow
+  ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+  ctx.font = "bold 36px Arial";
+  ctx.fillText(`⏱ ${timeString}`, 25, 45);
 
-  // Draw collectables collected
+  // Timer text
+  ctx.fillStyle = "#FFD700";
+  ctx.font = "bold 36px Arial";
+  ctx.fillText(`⏱ ${timeString}`, 23, 43);
+
+  // Draw collectables collected with better styling
   let collectedCount = 0;
   for (let i = 0; i < collectables.length; i++) {
     if (collectables[i].collected === true) {
       collectedCount++;
     }
   }
-  ctx.fillText(`Collected: ${collectedCount}/${collectables.length}`, 20, 80);
+
+  // Collected items text
+  ctx.fillStyle = "#FF6B6B";
+  ctx.font = "bold 32px Arial";
+  ctx.fillText(`★ Collected: ${collectedCount}/${collectables.length}`, 23, 83);
 }
 
 function winGame() {
   // If we reach this point, all collectables are collected
-  ctx.fillStyle = "grey";
+  // Draw sunrise gradient background
+  const gradient = ctx.createLinearGradient(
+    canvas.width / 4,
+    canvas.height / 6,
+    canvas.width / 4,
+    canvas.height / 6 + canvas.height / 2,
+  );
+  gradient.addColorStop(0, "#FFD700"); // Golden yellow
+  gradient.addColorStop(0.5, "#FFA500"); // Orange
+  gradient.addColorStop(1, "#FF6347"); // Tomato red
+
+  ctx.fillStyle = gradient;
   ctx.fillRect(
     canvas.width / 4,
     canvas.height / 6,
     canvas.width / 2,
     canvas.height / 2,
   );
-  ctx.fillStyle = "white";
-  ctx.font = "800% serif";
+
+  // Add border
+  ctx.strokeStyle = "#FF4500";
+  ctx.lineWidth = 5;
+  ctx.strokeRect(
+    canvas.width / 4,
+    canvas.height / 6,
+    canvas.width / 2,
+    canvas.height / 2,
+  );
+
+  // Draw "You Win!" text with shadow
+  ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+  ctx.font = "bold 140px serif";
+  ctx.fillText(
+    "You Win!",
+    canvas.width / 4 + 20,
+    canvas.height / 6 + canvas.height / 5 + 8,
+    (canvas.width / 16) * 14,
+  );
+
+  // Draw "You Win!" text in white
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 140px serif";
   ctx.fillText(
     "You Win!",
     canvas.width / 4,
     canvas.height / 6 + canvas.height / 5,
     (canvas.width / 16) * 14,
   );
-  ctx.font = "500% serif";
+
+  // Draw restart text with shadow
+  ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+  ctx.font = "bold 90px serif";
+  ctx.fillText(
+    "Hit any key to restart",
+    canvas.width / 4 + 15,
+    canvas.height / 6 + canvas.height / 3 + 8,
+    (canvas.width / 16) * 14,
+  );
+
+  // Draw restart text in white
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 90px serif";
   ctx.fillText(
     "Hit any key to restart",
     canvas.width / 4,
     canvas.height / 6 + canvas.height / 3,
     (canvas.width / 16) * 14,
   );
+
   if (keyPress.any) {
     keyPress.any = false;
     window.location.reload();
