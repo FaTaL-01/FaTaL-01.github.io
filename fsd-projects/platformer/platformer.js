@@ -17,6 +17,48 @@ $(function () {
       setInterval(main, 1000 / frameRate);
     }
 
+    platforms.length = 0;
+    fakePlatforms.length = 0;
+    badPlatforms.length = 0;
+    cannons.length = 0;
+    projectiles.length = 0;
+    collectables.length = 0;
+    baitHearts.length = 0;
+    player.x = 50;
+    player.y = 100;
+    player.speedX = 0;
+    player.speedY = 0;
+    player.onGround = false;
+    player.facingRight = true;
+    player.deadAndDeathAnimationDone = false;
+    player.winConditionMet = false;
+    player.cash = 500;
+    player.keybinds = {
+      w: false,
+      a: false,
+      s: false,
+      d: false,
+      space: false,
+    };
+    respawnSkillActive = false;
+    respawnSkillMeter = 0.5;
+    respawnSkillDirection = 1;
+    respawnSkillFailed = false;
+    pendingKeybindPurchase = null;
+    mathChallengeActive = false;
+    mathChallengePrompt = "";
+    mathChallengeAnswer = 0;
+    mathChallengeInput = "";
+    mathChallengeError = "";
+    nextMathChallengeAt = performance.now() + 15000;
+    currentAnimationType = animationTypes.run;
+    frameIndex = 0;
+    jumpTimer = 0;
+    duckTimer = 0;
+    runStartedAt = performance.now();
+    runEndedAt = null;
+    leaderboardSavedForRun = false;
+
     // Create walls - do not delete or modify this code
     createPlatform(-50, -50, canvas.width + 100, 50); // top wall
     createPlatform(
@@ -54,11 +96,13 @@ $(function () {
 
     createCollectable("steve", 300, 150, 0, 0);
 
+    createHeartTrap(1260, 650, 34, 30);
+
     // TODO 4 - Create Cannons
 
-    createCannon("top", 450, 900);
+    createCannon("top", 450, 900, 24, 24, 200, 900, 2);
 
-    createCannon("right", 750, 3500);
+    createCannon("right", 280, 3500, 24, 24, 140, 500, 2);
 
     createCannon("left", 200, 2000);
 

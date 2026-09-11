@@ -28,6 +28,37 @@ const player = {
   facingRight: true,
   deadAndDeathAnimationDone: false,
   winConditionMet: false,
+  cash: 500,
+  keybinds: {
+    w: false,
+    a: false,
+    s: false,
+    d: false,
+    space: false,
+  },
+};
+
+const movementBundleKeys = ["w", "a", "s", "d", "space"];
+
+const keybindPrices = {
+  w: 50,
+  a: 50,
+  s: 50,
+  d: 50,
+  space: 50,
+};
+
+const movementBundlePrice = movementBundleKeys.reduce(
+  (total, key) => total + keybindPrices[key],
+  0,
+);
+
+const keybindInfo = {
+  w: { label: "W", action: "go forwards" },
+  a: { label: "A", action: "move left" },
+  s: { label: "S", action: "move down" },
+  d: { label: "D", action: "move right" },
+  space: { label: "Space", action: "jump and hit skill checks" },
 };
 
 let hitDx;
@@ -44,6 +75,20 @@ const keyPress = {
   right: false,
   space: false,
 };
+
+let respawnSkillActive = false;
+let respawnSkillMeter = 0.5;
+let respawnSkillDirection = 1;
+const respawnSkillSpeed = 0.015;
+const respawnSkillWindowMin = 0.42;
+const respawnSkillWindowMax = 0.58;
+let respawnSkillFailed = false;
+let pendingKeybindPurchase = null;
+let secretPayToWinSequence = "";
+let cashCodeSequence = "";
+let superCodeSequence = "";
+let payToWinPromptOpen = false;
+const payToWinPrice = 100000;
 
 // Player animation variables
 const animationTypes = {
@@ -84,6 +129,7 @@ const defaultProjectileHeight = defaultProjectileWidth;
 const collectableWidth = 40;
 const collectableHeight = 40;
 let collectables = [];
+let baitHearts = [];
 
 // canvas and context variables; must be initialized later
 let canvas;
@@ -94,6 +140,15 @@ let setup;
 
 // Timer variable
 let runStartedAt;
+let runEndedAt = null;
+let leaderboardSavedForRun = false;
+
+let mathChallengeActive = false;
+let mathChallengePrompt = "";
+let mathChallengeAnswer = 0;
+let mathChallengeInput = "";
+let mathChallengeError = "";
+let nextMathChallengeAt = 0;
 
 let halleImage;
 let animationDetails = {};

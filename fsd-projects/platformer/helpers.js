@@ -7,6 +7,15 @@ function registerSetup(setup) {
   setupGame = setup;
 }
 
+function clearMathChallenge() {
+  mathChallengeActive = false;
+  mathChallengePrompt = "";
+  mathChallengeAnswer = 0;
+  mathChallengeInput = "";
+  mathChallengeError = "";
+  nextMathChallengeAt = performance.now() + 30000;
+}
+
 function main() {
   ctx.clearRect(0, 0, 1400, 750); //erase the screen so you can draw everything in it's most current position
 
@@ -24,12 +33,28 @@ function main() {
     return;
   }
 
+  if (currentAnimationType === animationTypes.frontDeath) {
+    clearMathChallenge();
+  }
+
   drawPlatforms();
   drawFakePlatforms();
   drawBadPlatforms();
   drawProjectiles();
   drawCannons();
   drawCollectables();
+  drawHeartTraps();
+
+  maybeTriggerMathChallenge();
+  if (mathChallengeActive) {
+    animate();
+    drawRobot();
+    drawKeybindPrompt();
+    drawHUD();
+    drawMathChallenge();
+    return;
+  }
+
   playerFrictionAndGravity();
 
   player.x += player.speedX;
@@ -44,7 +69,181 @@ function main() {
   animate(); //this changes halle's picture to the next frame so it looks animated.
   // debug()                   //debugging values. Comment this out when not debugging.
   drawRobot(); //this actually displays the image of the robot.
+  drawKeybindPrompt();
   drawHUD(); //draw the timer and collected items display
+}
+
+function maybeTriggerMathChallenge() {
+  if (mathChallengeActive || typeof runStartedAt !== "number") {
+    return;
+  }
+
+  if (performance.now() < nextMathChallengeAt) {
+    return;
+  }
+
+  const easyNumbers = [2, 3, 4, 5, 6, 7, 8, 9, 10];
+  const left = easyNumbers[Math.floor(Math.random() * easyNumbers.length)];
+  const right = easyNumbers[Math.floor(Math.random() * easyNumbers.length)];
+  const useAddition = Math.random() < 0.6;
+
+  mathChallengePrompt = useAddition
+    ? `${left} + ${right}`
+    : `${left} × ${right}`;
+  mathChallengeAnswer = useAddition ? left + right : left * right;
+  mathChallengeInput = "";
+  mathChallengeError = "";
+  mathChallengeActive = true;
+  nextMathChallengeAt = performance.now() + 30000;
+}
+
+function submitMathChallenge() {
+  if (!mathChallengeActive) {
+    return;
+  }
+
+  const guess = Number(mathChallengeInput);
+
+  if (mathChallengeInput === "" || Number.isNaN(guess)) {
+    mathChallengeError = "Enter a number first";
+    return;
+  }
+
+  if (guess === mathChallengeAnswer) {
+    clearMathChallenge();
+    return;
+  }
+
+  mathChallengeInput = "";
+  mathChallengeError = "Wrong answer!";
+}
+
+function drawMathChallenge() {
+  const panelX = canvas.width / 2 - 290;
+  const panelY = canvas.height / 2 - 120;
+  const panelW = 580;
+  const panelH = 220;
+
+  ctx.fillStyle = "rgba(6, 10, 20, 0.82)";
+  ctx.fillRect(panelX, panelY, panelW, panelH);
+  ctx.strokeStyle = "#F5D76E";
+  ctx.lineWidth = 4;
+  ctx.strokeRect(panelX, panelY, panelW, panelH);
+
+  ctx.fillStyle = "#F7F9FC";
+  ctx.font = "bold 40px serif";
+  ctx.fillText("Math Check!", panelX + 30, panelY + 55, panelW - 60);
+
+  ctx.fillStyle = "#F5D76E";
+  ctx.font = "bold 54px serif";
+  ctx.fillText(
+    `${mathChallengePrompt} = ?`,
+    panelX + 30,
+    panelY + 110,
+    panelW - 60,
+  );
+
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 32px serif";
+  const answerText = mathChallengeInput === "" ? "_" : mathChallengeInput;
+  ctx.fillText(`Answer: ${answerText}`, panelX + 30, panelY + 155, panelW - 60);
+
+  ctx.fillStyle = "#D6E8FF";
+  ctx.font = "bold 24px serif";
+  ctx.fillText(
+    "Type digits, then press Enter",
+    panelX + 30,
+    panelY + 195,
+    panelW - 60,
+  );
+
+  if (mathChallengeError) {
+    ctx.fillStyle = "#FF6B6B";
+    ctx.font = "bold 24px serif";
+    ctx.fillText(mathChallengeError, panelX + 30, panelY + 195, panelW - 60);
+  }
+}
+
+function formatTime(totalSeconds) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = Math.floor(totalSeconds % 60);
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function getLeaderboard() {
+  try {
+    const saved = JSON.parse(
+      localStorage.getItem("platformerLeaderboard") || "[]",
+    );
+    return Array.isArray(saved) ? saved : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveRunTime(elapsedSeconds) {
+  const leaderboard = getLeaderboard();
+  const cleanSeconds = Number(elapsedSeconds) || 0;
+
+  const deduped = leaderboard.filter(
+    (entry) => Number(entry.seconds) !== cleanSeconds,
+  );
+  deduped.push({
+    seconds: cleanSeconds,
+    label: formatTime(cleanSeconds),
+  });
+
+  deduped.sort((a, b) => a.seconds - b.seconds);
+  const trimmed = deduped.slice(0, 10);
+  localStorage.setItem("platformerLeaderboard", JSON.stringify(trimmed));
+  return trimmed;
+}
+
+function drawLeaderboard(x, y, width, leaderboard) {
+  const maxRows = Math.min(10, leaderboard.length || 1);
+  const rowHeight = 18;
+  const panelHeight = Math.max(150, 58 + maxRows * rowHeight + 18);
+  const gradient = ctx.createLinearGradient(x, y, x, y + panelHeight);
+  gradient.addColorStop(0, "#16263d");
+  gradient.addColorStop(0.5, "#243d57");
+  gradient.addColorStop(1, "#3b4d68");
+
+  ctx.fillStyle = gradient;
+  ctx.fillRect(x, y, width, panelHeight);
+  ctx.strokeStyle = "rgba(245, 215, 110, 0.9)";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(x, y, width, panelHeight);
+
+  ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
+  ctx.fillRect(x + 12, y + 12, width - 24, 30);
+
+  ctx.fillStyle = "#F7F9FC";
+  ctx.font = "bold 26px serif";
+  ctx.fillText("Leaderboard", x + 22, y + 32);
+
+  if (!leaderboard.length) {
+    ctx.fillStyle = "#D6E8FF";
+    ctx.font = "bold 20px serif";
+    ctx.fillText("No times yet", x + 22, y + 64, width - 40);
+    return;
+  }
+
+  for (let i = 0; i < maxRows; i++) {
+    const item = leaderboard[i];
+    const text = `${i + 1}. ${item.label || formatTime(item.seconds || 0)}`;
+    const rowY = y + 62 + i * rowHeight;
+
+    ctx.fillStyle =
+      i === 0
+        ? "#F5D76E"
+        : i === 1
+          ? "#D7E6FF"
+          : i === 2
+            ? "#CFAF7A"
+            : "#FFFFFF";
+    ctx.font = "bold 18px serif";
+    ctx.fillText(text, x + 22, rowY, width - 44);
+  }
 }
 
 function getJSON(url, callback) {
@@ -337,6 +536,16 @@ function resolveCollision(objx, objy, objw, objh) {
   return collisionDirection;
 }
 
+function triggerFrontDeath() {
+  if (currentAnimationType === animationTypes.frontDeath) {
+    return;
+  }
+
+  currentAnimationType = animationTypes.frontDeath;
+  frameIndex = 0;
+  clearMathChallenge();
+}
+
 function projectileCollision() {
   //checking if the player is dead
   if (currentAnimationType === animationTypes.frontDeath) {
@@ -365,8 +574,7 @@ function projectileCollision() {
       projectiles[i].y < player.y + hitBoxHeight &&
       projectiles[i].y + projectiles[i].height > player.y
     ) {
-      currentAnimationType = animationTypes.frontDeath;
-      frameIndex = 0;
+      triggerFrontDeath();
     }
   }
 }
@@ -382,85 +590,148 @@ function badPlatformCollision() {
       player.y < badPlatforms[i].y + badPlatforms[i].height &&
       player.y + hitBoxHeight > badPlatforms[i].y
     ) {
-      currentAnimationType = animationTypes.frontDeath;
-      frameIndex = 0;
+      triggerFrontDeath();
     }
   }
 }
 
 function deathOfPlayer() {
-  // Draw sunrise gradient background
+  if (!respawnSkillActive && !respawnSkillFailed) {
+    respawnSkillActive = true;
+    respawnSkillMeter = 0.08;
+    respawnSkillDirection = 1;
+  }
+
+  if (respawnSkillActive && !respawnSkillFailed) {
+    respawnSkillMeter += respawnSkillSpeed * respawnSkillDirection;
+    if (respawnSkillMeter <= 0.02 || respawnSkillMeter >= 0.98) {
+      respawnSkillDirection *= -1;
+      respawnSkillMeter = Math.max(0.02, Math.min(0.98, respawnSkillMeter));
+    }
+  }
+
+  const panelX = canvas.width / 4;
+  const panelY = canvas.height / 6;
+  const panelW = canvas.width / 2;
+  const panelH = canvas.height / 2;
+
   const gradient = ctx.createLinearGradient(
-    canvas.width / 4,
-    canvas.height / 6,
-    canvas.width / 4,
-    canvas.height / 6 + canvas.height / 2,
+    panelX,
+    panelY,
+    panelX,
+    panelY + panelH,
   );
-  gradient.addColorStop(0, "#FF6B35"); // Sunrise orange
-  gradient.addColorStop(0.5, "#FF8C42"); // Light orange
-  gradient.addColorStop(1, "#FFB380"); // Pale peach
+  gradient.addColorStop(0, "#17233b");
+  gradient.addColorStop(0.5, "#405b78");
+  gradient.addColorStop(1, "#c47a68");
 
   ctx.fillStyle = gradient;
-  ctx.fillRect(
-    canvas.width / 4,
-    canvas.height / 6,
-    canvas.width / 2,
-    canvas.height / 2,
-  );
+  ctx.fillRect(panelX, panelY, panelW, panelH);
 
-  // Add border
-  ctx.strokeStyle = "#FF4500";
+  ctx.strokeStyle = "rgba(225, 236, 250, 0.55)";
   ctx.lineWidth = 5;
-  ctx.strokeRect(
-    canvas.width / 4,
-    canvas.height / 6,
-    canvas.width / 2,
-    canvas.height / 2,
-  );
+  ctx.strokeRect(panelX, panelY, panelW, panelH);
 
-  // Draw "You are dead" text with shadow
-  ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+  ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
   ctx.font = "bold 140px serif";
   ctx.fillText(
     "You are dead",
-    canvas.width / 4 + 20,
-    canvas.height / 6 + canvas.height / 5 + 8,
-    (canvas.width / 16) * 14,
+    panelX + 20,
+    panelY + panelH / 5 + 8,
+    panelW - 40,
   );
 
-  // Draw "You are dead" text in white
-  ctx.fillStyle = "#FFFFFF";
+  ctx.fillStyle = "#f7f9fc";
   ctx.font = "bold 140px serif";
+  ctx.fillText("You are dead", panelX, panelY + panelH / 5, panelW - 40);
+
+  const centerX = canvas.width / 2;
+  const centerY = panelY + panelH * 0.62;
+  const radius = 118;
+  const startAngle = -Math.PI / 2 + respawnSkillWindowMin * Math.PI * 2;
+  const endAngle = -Math.PI / 2 + respawnSkillWindowMax * Math.PI * 2;
+  const markerAngle = -Math.PI / 2 + respawnSkillMeter * Math.PI * 2;
+
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+  ctx.lineWidth = 18;
+  ctx.strokeStyle = "rgba(15, 23, 42, 0.8)";
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+  ctx.lineWidth = 18;
+  ctx.strokeStyle = "#4ade80";
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+  ctx.stroke();
+
+  const markerX = centerX + Math.cos(markerAngle) * radius;
+  const markerY = centerY + Math.sin(markerAngle) * radius;
+  ctx.beginPath();
+  ctx.moveTo(centerX, centerY);
+  ctx.lineTo(markerX, markerY);
+  ctx.lineWidth = 8;
+  ctx.strokeStyle = "#f5d76e";
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(markerX, markerY, 10, 0, Math.PI * 2);
+  ctx.fillStyle = "#f5d76e";
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
+  ctx.font = "bold 54px serif";
   ctx.fillText(
-    "You are dead",
-    canvas.width / 4,
-    canvas.height / 6 + canvas.height / 5,
-    (canvas.width / 16) * 14,
+    "Space to pass the check",
+    panelX + 90,
+    panelY + panelH - 36,
+    panelW - 180,
   );
 
-  // Draw restart text with shadow
-  ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-  ctx.font = "bold 90px serif";
+  ctx.fillStyle = "#f7f9fc";
+  ctx.font = "bold 54px serif";
   ctx.fillText(
-    "Hit any key to restart",
-    canvas.width / 4 + 15,
-    canvas.height / 6 + canvas.height / 3 + 8,
-    (canvas.width / 16) * 14,
+    "Space to pass the check",
+    panelX + 70,
+    panelY + panelH - 52,
+    panelW - 180,
   );
 
-  // Draw restart text in yellow
-  ctx.fillStyle = "#FFD700";
-  ctx.font = "bold 90px serif";
-  ctx.fillText(
-    "Hit any key to restart",
-    canvas.width / 4,
-    canvas.height / 6 + canvas.height / 3,
-    (canvas.width / 16) * 14,
-  );
+  if (keyPress.space && respawnSkillActive) {
+    if (!player.keybinds.space) {
+      showKeybindPrompt("space");
+      keyPress.space = false;
+      return;
+    }
 
-  if (keyPress.any) {
-    keyPress.any = false;
-    window.location.reload();
+    const success =
+      respawnSkillMeter >= respawnSkillWindowMin &&
+      respawnSkillMeter <= respawnSkillWindowMax;
+    keyPress.space = false;
+
+    if (success) {
+      resetCurrentRun();
+      return;
+    }
+
+    respawnSkillActive = false;
+    respawnSkillFailed = true;
+  }
+
+  if (respawnSkillFailed) {
+    ctx.fillStyle = "rgba(7, 11, 20, 0.78)";
+    ctx.fillRect(panelX + 60, panelY + 150, panelW - 120, 150);
+
+    ctx.fillStyle = "#f7f9fc";
+    ctx.font = "bold 78px serif";
+    ctx.fillText("YOU LOSE", panelX + 110, panelY + 250, panelW - 200);
+
+    drawLeaderboard(panelX + 80, panelY + 290, panelW - 160, getLeaderboard());
   }
 }
 
@@ -632,6 +903,61 @@ function drawCannons() {
   }
 }
 
+function drawHeart(x, y, width, height) {
+  const heartWidth = width;
+  const heartHeight = height;
+  const centerX = x + heartWidth / 2;
+  const centerY = y + heartHeight / 2;
+
+  ctx.save();
+  ctx.translate(centerX, centerY);
+  ctx.beginPath();
+  ctx.moveTo(0, heartHeight * 0.38);
+  ctx.arc(
+    -heartWidth * 0.28,
+    -heartHeight * 0.08,
+    heartWidth * 0.31,
+    Math.PI,
+    0,
+  );
+  ctx.arc(
+    heartWidth * 0.28,
+    -heartHeight * 0.08,
+    heartWidth * 0.31,
+    Math.PI,
+    0,
+  );
+  ctx.lineTo(0, heartHeight * 0.9);
+  ctx.closePath();
+  ctx.fillStyle = "#ff4d6d";
+  ctx.fill();
+  ctx.restore();
+}
+
+function createHeartTrap(x, y, width = 34, height = 30) {
+  baitHearts.push({ x, y, width, height });
+}
+
+function drawHeartTraps() {
+  if (currentAnimationType === animationTypes.frontDeath) {
+    return;
+  }
+
+  for (let i = 0; i < baitHearts.length; i++) {
+    const trap = baitHearts[i];
+    drawHeart(trap.x, trap.y, trap.width, trap.height);
+
+    if (
+      player.x + hitBoxWidth > trap.x - 8 &&
+      player.x < trap.x + trap.width + 8 &&
+      player.y < trap.y + trap.height + 8 &&
+      player.y + hitBoxHeight > trap.y - 8
+    ) {
+      triggerFrontDeath();
+    }
+  }
+}
+
 function drawCollectables() {
   for (var i = 0; i < collectables.length; i++) {
     if (collectables[i].collected !== true) {
@@ -717,31 +1043,21 @@ function checkForWin() {
       return; // If any collectable is not collected, we can't win yet
     }
   }
+  if (runEndedAt === null) {
+    runEndedAt = performance.now();
+  }
   player.winConditionMet = true; // Set win condition to true
 }
 
 function drawHUD() {
-  // Draw semi-transparent background panels
-  ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-  ctx.fillRect(10, 20, 300, 80);
-
-  // Draw timer with shadow effect
-  const elapsedTime = (performance.now() - runStartedAt) / 1000; // Convert to seconds
+  const elapsedTime =
+    typeof runEndedAt === "number"
+      ? (runEndedAt - runStartedAt) / 1000
+      : (performance.now() - runStartedAt) / 1000;
   const minutes = Math.floor(elapsedTime / 60);
   const seconds = Math.floor(elapsedTime % 60);
   const timeString = `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
 
-  // Timer shadow
-  ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-  ctx.font = "bold 36px Arial";
-  ctx.fillText(`⏱ ${timeString}`, 25, 45);
-
-  // Timer text
-  ctx.fillStyle = "#FFD700";
-  ctx.font = "bold 36px Arial";
-  ctx.fillText(`⏱ ${timeString}`, 23, 43);
-
-  // Draw collectables collected with better styling
   let collectedCount = 0;
   for (let i = 0; i < collectables.length; i++) {
     if (collectables[i].collected === true) {
@@ -749,86 +1065,269 @@ function drawHUD() {
     }
   }
 
-  // Collected items text
-  ctx.fillStyle = "#FF6B6B";
-  ctx.font = "bold 32px Arial";
-  ctx.fillText(`★ Collected: ${collectedCount}/${collectables.length}`, 23, 83);
+  const panelHeight = 92;
+  const startX = 20;
+  const gap = 18;
+
+  ctx.fillStyle = "rgba(10, 18, 32, 0.78)";
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.18)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(startX, 18, 220, panelHeight, 18);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = "rgba(13, 21, 35, 0.9)";
+  ctx.beginPath();
+  ctx.roundRect(startX + 238, 18, 280, panelHeight, 18);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = "rgba(13, 21, 35, 0.9)";
+  ctx.beginPath();
+  ctx.roundRect(startX + 238 + 280 + gap, 18, 220, panelHeight, 18);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = "#F5D76E";
+  ctx.font = "bold 26px Arial";
+  ctx.fillText("⏱ TIME", startX + 18, 48);
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 34px Arial";
+  ctx.fillText(timeString, startX + 18, 82);
+
+  ctx.fillStyle = "#FF7B72";
+  ctx.font = "bold 26px Arial";
+  ctx.fillText("★ COLLECTED", startX + 258, 48);
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 34px Arial";
+  ctx.fillText(`${collectedCount}/${collectables.length}`, startX + 258, 82);
+
+  ctx.fillStyle = "#72F0A0";
+  ctx.font = "bold 26px Arial";
+  ctx.fillText("💰 CASH", startX + 238 + 280 + gap + 18, 48);
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 34px Arial";
+  ctx.fillText(`$${player.cash}`, startX + 238 + 280 + gap + 18, 82);
+}
+
+function drawKeybindPrompt() {
+  if (!pendingKeybindPurchase && !payToWinPromptOpen) {
+    return;
+  }
+
+  const x = canvas.width / 2 - 310;
+  const y = canvas.height / 2 - 110;
+
+  ctx.fillStyle = "rgba(5, 10, 20, 0.82)";
+  ctx.fillRect(x, y, 620, 220);
+  ctx.strokeStyle = "#F5D76E";
+  ctx.lineWidth = 4;
+  ctx.strokeRect(x, y, 620, 220);
+
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 34px serif";
+
+  if (pendingKeybindPurchase) {
+    const key = pendingKeybindPurchase;
+    if (key === "movement") {
+      ctx.fillText(
+        "Would you like to buy all movement keys (WASD + Space)?",
+        x + 30,
+        y + 55,
+        560,
+      );
+
+      ctx.fillStyle = "#4ADE80";
+      ctx.font = "bold 30px serif";
+      ctx.fillText(`Cost: $${movementBundlePrice}`, x + 30, y + 100);
+    } else {
+      const item = keybindInfo[key];
+      const price = keybindPrices[key];
+      ctx.fillText(
+        `Would you like to buy ${item.label} key to ${item.action}?`,
+        x + 30,
+        y + 55,
+        560,
+      );
+
+      ctx.fillStyle = "#4ADE80";
+      ctx.font = "bold 30px serif";
+      ctx.fillText(`Cost: $${price}`, x + 30, y + 100);
+    }
+  } else {
+    ctx.fillText("Would you like to pay to win?", x + 120, y + 55, 400);
+
+    ctx.fillStyle = "#4ADE80";
+    ctx.font = "bold 30px serif";
+    ctx.fillText(`Cost: $${payToWinPrice}`, x + 220, y + 100);
+  }
+
+  ctx.fillStyle = "#F7F9FC";
+  ctx.font = "bold 28px serif";
+  ctx.fillText("Press Y to buy or N to cancel", x + 30, y + 150);
+
+  if (payToWinPromptOpen && player.cash < payToWinPrice) {
+    ctx.fillStyle = "#FF6B6B";
+    ctx.font = "bold 28px serif";
+    ctx.fillText("Not enough cash", x + 30, y + 190);
+  }
+}
+
+function showPayToWinPrompt() {
+  payToWinPromptOpen = true;
+  pendingKeybindPurchase = null;
+}
+
+function buyPayToWin() {
+  if (!payToWinPromptOpen) {
+    return;
+  }
+
+  if (player.cash >= payToWinPrice) {
+    player.cash -= payToWinPrice;
+    player.winConditionMet = true;
+    payToWinPromptOpen = false;
+  }
+}
+
+function showKeybindPrompt(key) {
+  if (movementBundleKeys.includes(key)) {
+    if (
+      movementBundleKeys.every((movementKey) => player.keybinds[movementKey])
+    ) {
+      return;
+    }
+    pendingKeybindPurchase = "movement";
+    return;
+  }
+
+  if (!keybindInfo[key]) {
+    return;
+  }
+
+  if (player.keybinds[key]) {
+    return;
+  }
+
+  pendingKeybindPurchase = key;
+}
+
+function buyKeybind() {
+  if (!pendingKeybindPurchase) {
+    return;
+  }
+
+  if (pendingKeybindPurchase === "movement") {
+    if (player.cash < movementBundlePrice) {
+      return;
+    }
+
+    player.cash -= movementBundlePrice;
+    movementBundleKeys.forEach((key) => {
+      player.keybinds[key] = true;
+    });
+    pendingKeybindPurchase = null;
+    return;
+  }
+
+  const key = pendingKeybindPurchase;
+  const cost = keybindPrices[key];
+
+  if (player.cash >= cost) {
+    player.cash -= cost;
+    player.keybinds[key] = true;
+    pendingKeybindPurchase = null;
+  }
+}
+
+function resetCurrentRun() {
+  keyPress.any = false;
+  keyPress.up = false;
+  keyPress.left = false;
+  keyPress.down = false;
+  keyPress.right = false;
+  keyPress.space = false;
+  pendingKeybindPurchase = null;
+  payToWinPromptOpen = false;
+  secretPayToWinSequence = "";
+  clearMathChallenge();
+
+  if (typeof setupGame === "function") {
+    setupGame();
+  } else {
+    window.location.reload();
+  }
 }
 
 function winGame() {
-  // If we reach this point, all collectables are collected
-  // Draw sunrise gradient background
+  const panelX = canvas.width / 4;
+  const panelY = canvas.height / 7;
+  const panelW = canvas.width / 2;
+  const panelH = canvas.height * 0.62;
+
+  if (runEndedAt === null) {
+    runEndedAt = performance.now();
+  }
+
+  const finalTime = (runEndedAt - runStartedAt) / 1000;
+  const leaderboard = leaderboardSavedForRun
+    ? getLeaderboard()
+    : saveRunTime(finalTime);
+  leaderboardSavedForRun = true;
+
   const gradient = ctx.createLinearGradient(
-    canvas.width / 4,
-    canvas.height / 6,
-    canvas.width / 4,
-    canvas.height / 6 + canvas.height / 2,
+    panelX,
+    panelY,
+    panelX,
+    panelY + panelH,
   );
-  gradient.addColorStop(0, "#FFD700"); // Golden yellow
-  gradient.addColorStop(0.5, "#FFA500"); // Orange
-  gradient.addColorStop(1, "#FF6347"); // Tomato red
+  gradient.addColorStop(0, "#17233b");
+  gradient.addColorStop(0.5, "#405b78");
+  gradient.addColorStop(1, "#c47a68");
 
   ctx.fillStyle = gradient;
-  ctx.fillRect(
-    canvas.width / 4,
-    canvas.height / 6,
-    canvas.width / 2,
-    canvas.height / 2,
-  );
+  ctx.fillRect(panelX, panelY, panelW, panelH);
 
-  // Add border
-  ctx.strokeStyle = "#FF4500";
+  ctx.strokeStyle = "rgba(225, 236, 250, 0.55)";
   ctx.lineWidth = 5;
-  ctx.strokeRect(
-    canvas.width / 4,
-    canvas.height / 6,
-    canvas.width / 2,
-    canvas.height / 2,
-  );
+  ctx.strokeRect(panelX, panelY, panelW, panelH);
 
-  // Draw "You Win!" text with shadow
   ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-  ctx.font = "bold 140px serif";
-  ctx.fillText(
-    "You Win!",
-    canvas.width / 4 + 20,
-    canvas.height / 6 + canvas.height / 5 + 8,
-    (canvas.width / 16) * 14,
-  );
+  ctx.font = "bold 76px serif";
+  ctx.fillText("You Win!", panelX + 26, panelY + 88, panelW - 40);
 
-  // Draw "You Win!" text in white
   ctx.fillStyle = "#FFFFFF";
-  ctx.font = "bold 140px serif";
-  ctx.fillText(
-    "You Win!",
-    canvas.width / 4,
-    canvas.height / 6 + canvas.height / 5,
-    (canvas.width / 16) * 14,
-  );
+  ctx.font = "bold 76px serif";
+  ctx.fillText("You Win!", panelX + 10, panelY + 80, panelW - 40);
 
-  // Draw restart text with shadow
+  ctx.fillStyle = "#F5D76E";
+  ctx.font = "bold 32px serif";
+  ctx.fillText(`Time: ${formatTime(finalTime)}`, panelX + 30, panelY + 150);
+
   ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-  ctx.font = "bold 90px serif";
+  ctx.font = "bold 34px serif";
   ctx.fillText(
-    "Hit any key to restart",
-    canvas.width / 4 + 15,
-    canvas.height / 6 + canvas.height / 3 + 8,
-    (canvas.width / 16) * 14,
+    "Press R or Space to restart",
+    panelX + 25,
+    panelY + 202,
+    panelW - 60,
   );
 
-  // Draw restart text in white
   ctx.fillStyle = "#FFFFFF";
-  ctx.font = "bold 90px serif";
+  ctx.font = "bold 34px serif";
   ctx.fillText(
-    "Hit any key to restart",
-    canvas.width / 4,
-    canvas.height / 6 + canvas.height / 3,
-    (canvas.width / 16) * 14,
+    "Press R or Space to restart",
+    panelX + 10,
+    panelY + 196,
+    panelW - 60,
   );
 
-  if (keyPress.any) {
-    keyPress.any = false;
-    window.location.reload();
+  drawLeaderboard(panelX + 75, panelY + 210, panelW - 150, leaderboard);
+
+  if (keyPress.space) {
+    keyPress.space = false;
+    resetCurrentRun();
   }
 }
 
@@ -892,6 +1391,8 @@ function createCannon(
   maxPos = null,
   speed = 1,
 ) {
+  const shotDelay = timeBetweenShots / (1000 / frameRate);
+
   if (wallLocation === "top") {
     cannons.push({
       x: position,
@@ -899,12 +1400,12 @@ function createCannon(
       rotation: 180,
       projectileCountdown: 0,
       location: wallLocation,
-      timeBetweenShots: timeBetweenShots / (1000 / frameRate),
+      timeBetweenShots: shotDelay,
       projectileWidth: width,
       projectileHeight: height,
       minX: minPos,
       maxX: maxPos,
-      speedX: speed,
+      speedX: -Math.abs(speed),
       minY: null,
       maxY: null,
       speedY: 0,
@@ -916,12 +1417,12 @@ function createCannon(
       rotation: 0,
       projectileCountdown: 0,
       location: wallLocation,
-      timeBetweenShots: timeBetweenShots / (1000 / frameRate),
+      timeBetweenShots: shotDelay,
       projectileWidth: width,
       projectileHeight: height,
       minX: minPos,
       maxX: maxPos,
-      speedX: speed,
+      speedX: -Math.abs(speed),
       minY: null,
       maxY: null,
       speedY: 0,
@@ -933,7 +1434,7 @@ function createCannon(
       rotation: 90,
       projectileCountdown: 0,
       location: wallLocation,
-      timeBetweenShots: timeBetweenShots / (1000 / frameRate),
+      timeBetweenShots: shotDelay,
       projectileWidth: width,
       projectileHeight: height,
       minX: null,
@@ -941,7 +1442,7 @@ function createCannon(
       speedX: 0,
       minY: minPos,
       maxY: maxPos,
-      speedY: speed,
+      speedY: Math.abs(speed),
     });
   } else if (wallLocation === "right") {
     cannons.push({
@@ -950,7 +1451,7 @@ function createCannon(
       rotation: 270,
       projectileCountdown: 0,
       location: wallLocation,
-      timeBetweenShots: timeBetweenShots / (1000 / frameRate),
+      timeBetweenShots: shotDelay,
       projectileWidth: width,
       projectileHeight: height,
       minX: null,
@@ -958,7 +1459,7 @@ function createCannon(
       speedX: 0,
       minY: minPos,
       maxY: maxPos,
-      speedY: speed,
+      speedY: Math.abs(speed),
     });
   }
 }
@@ -1045,22 +1546,27 @@ function createProjectile(wallLocation, x, y, width, height) {
 }
 
 function keyboardControlActions() {
-  keyPress.any = false; //keyboardHandler will set this to true if you press any key. Setting the variable to false here makes sure that key press dosen't stick around.
-  //this is used for respawning; if you hit any key after you die this variable will be set to true and you will respawn.
-
-  if (currentAnimationType === animationTypes.frontDeath) {
+  if (
+    mathChallengeActive ||
+    currentAnimationType === animationTypes.frontDeath ||
+    player.deadAndDeathAnimationDone ||
+    player.winConditionMet
+  ) {
     return;
   }
 
-  if (keyPress.left) {
+  keyPress.any = false; //keyboardHandler will set this to true if you press any key. Setting the variable to false here makes sure that key press dosen't stick around.
+  //this is used for respawning; if you hit any key after you die this variable will be set to true and you will respawn.
+
+  if (keyPress.left && player.keybinds.a) {
     player.speedX -= walkAcceleration;
     player.facingRight = false;
   }
-  if (keyPress.right) {
+  if (keyPress.right && player.keybinds.d) {
     player.speedX += walkAcceleration;
     player.facingRight = true;
   }
-  if (keyPress.space || keyPress.up) {
+  if (keyPress.space && player.keybinds.space) {
     if (player.onGround) {
       //this only lets you jump if you are on the ground
       player.speedY = player.speedY - playerJumpStrength;
@@ -1068,46 +1574,209 @@ function keyboardControlActions() {
       player.onGround = false; //bug fix for jump animation, you have to change this or the jump animation doesn't work
       frameIndex = 4;
     }
+  } else if (keyPress.up) {
+    if (player.onGround) {
+      player.speedY = player.speedY - playerJumpStrength;
+      jumpTimer = 19;
+      player.onGround = false;
+      frameIndex = 4;
+    }
   }
 }
 
 function handleKeyDown(e) {
+  const key = e.key ? e.key.toLowerCase() : "";
+  const isSpaceKey = e.code === "Space" || key === " " || key === "space";
+
+  if (mathChallengeActive) {
+    if (key >= "0" && key <= "9") {
+      mathChallengeInput += key;
+      mathChallengeError = "";
+      return;
+    }
+
+    if (key === "backspace") {
+      mathChallengeInput = mathChallengeInput.slice(0, -1);
+      mathChallengeError = "";
+      return;
+    }
+
+    if (key === "enter") {
+      submitMathChallenge();
+      return;
+    }
+
+    return;
+  }
+
+  if (key === "r") {
+    resetCurrentRun();
+    return;
+  }
+
+  if (payToWinPromptOpen) {
+    if (key === "y") {
+      buyPayToWin();
+      return;
+    }
+    if (key === "n") {
+      payToWinPromptOpen = false;
+      return;
+    }
+  }
+
+  if (pendingKeybindPurchase) {
+    if (
+      pendingKeybindPurchase === "movement" ||
+      pendingKeybindPurchase === "space"
+    ) {
+      if (pendingKeybindPurchase === "space" && isSpaceKey) {
+        buyKeybind();
+        if (player.keybinds.space) {
+          keyPress.space = true;
+        }
+        return;
+      }
+      if (key === "y") {
+        buyKeybind();
+        return;
+      }
+      if (key === "n") {
+        pendingKeybindPurchase = null;
+        return;
+      }
+    } else if (key === "y") {
+      buyKeybind();
+      return;
+    } else if (key === "n") {
+      pendingKeybindPurchase = null;
+      return;
+    }
+  }
+
   keyPress.any = true;
-  if (e.key === "ArrowUp" || e.key === "w") {
+
+  if (key === "w" || key === "i" || key === "n") {
+    secretPayToWinSequence += key;
+    if (secretPayToWinSequence.length > 3) {
+      secretPayToWinSequence = secretPayToWinSequence.slice(-3);
+    }
+    if (secretPayToWinSequence === "win") {
+      showPayToWinPrompt();
+      secretPayToWinSequence = "";
+    }
+  } else {
+    secretPayToWinSequence = "";
+  }
+
+  if (key === "c" || key === "a" || key === "s" || key === "h") {
+    cashCodeSequence += key;
+    if (cashCodeSequence.length > 4) {
+      cashCodeSequence = cashCodeSequence.slice(-4);
+    }
+    if (cashCodeSequence === "cash") {
+      player.cash += 250;
+      cashCodeSequence = "";
+      return;
+    }
+    if (!"cash".startsWith(cashCodeSequence)) {
+      cashCodeSequence = key === "c" ? "c" : "";
+    }
+  } else {
+    cashCodeSequence = "";
+  }
+
+  if (key === "m" || key === "o" || key === "n" || key === "e" || key === "y") {
+    superCodeSequence += key;
+    if (superCodeSequence.length > 5) {
+      superCodeSequence = superCodeSequence.slice(-5);
+    }
+    if (superCodeSequence === "money") {
+      player.cash += 100000;
+      superCodeSequence = "";
+      return;
+    }
+    if (!"money".startsWith(superCodeSequence)) {
+      superCodeSequence = key === "m" ? "m" : "";
+    }
+  } else {
+    superCodeSequence = "";
+  }
+
+  if (key === "arrowup") {
     keyPress.up = true;
   }
-  if (e.key === "ArrowLeft" || e.key === "a") {
+  if (key === "w") {
+    if (!player.keybinds.w) {
+      showKeybindPrompt("w");
+      return;
+    }
+    keyPress.up = true;
+  }
+  if (key === "arrowleft") {
     keyPress.left = true;
   }
-  if (e.key === "ArrowDown" || e.key === "s") {
+  if (key === "a") {
+    if (!player.keybinds.a) {
+      showKeybindPrompt("a");
+      return;
+    }
+    keyPress.left = true;
+  }
+  if (key === "arrowdown") {
     keyPress.down = true;
   }
-  if (e.key === "ArrowRight" || e.key === "d") {
+  if (key === "s") {
+    if (!player.keybinds.s) {
+      showKeybindPrompt("s");
+      return;
+    }
+    keyPress.down = true;
+  }
+  if (key === "arrowright") {
     keyPress.right = true;
   }
-  if (e.key === " ") {
+  if (key === "d") {
+    if (!player.keybinds.d) {
+      showKeybindPrompt("d");
+      return;
+    }
+    keyPress.right = true;
+  }
+  if (isSpaceKey) {
+    if (!player.keybinds.space) {
+      showKeybindPrompt("space");
+      return;
+    }
     keyPress.space = true;
   }
 }
 
 function handleKeyUp(e) {
-  if (e.key === "ArrowUp" || e.key === "w") {
+  const key = e.key ? e.key.toLowerCase() : "";
+  const isSpaceKey = e.code === "Space" || key === " " || key === "space";
+
+  if (mathChallengeActive) {
+    return;
+  }
+
+  if (key === "arrowup" || key === "w") {
     keyPress.up = false;
   }
-  if (e.key === "ArrowLeft" || e.key === "a") {
+  if (key === "arrowleft" || key === "a") {
     keyPress.left = false;
   }
-  if (e.key === "ArrowDown" || e.key === "s") {
+  if (key === "arrowdown" || key === "s") {
     keyPress.down = false;
     if (currentAnimationType === animationTypes.duck) {
       duckTimer = 8;
       frameIndex = 20;
     }
   }
-  if (e.key === "ArrowRight" || e.key === "d") {
+  if (key === "arrowright" || key === "d") {
     keyPress.right = false;
   }
-  if (e.key === " ") {
+  if (isSpaceKey) {
     keyPress.space = false;
   }
 }
